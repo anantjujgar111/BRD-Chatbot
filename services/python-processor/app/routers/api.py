@@ -80,15 +80,18 @@ def delete_file(workspace_id: str, file_id: str, db: Session = Depends(get_db)):
     if stored_path.exists():
         stored_path.unlink()
 
+    filename = file_record.filename
     db.delete(file_record)
+    cleared_messages = rag_service.clear_chat_history(db, workspace_id)
     db.commit()
 
     return {
         "message": "File removed from workspace context",
         "file_id": file_id,
-        "filename": file_record.filename,
+        "filename": filename,
         "removed_chunks": removed_chunks,
         "remaining_chunk_count": vector_store.workspace_chunk_count(workspace_id),
+        "chat_history_cleared": cleared_messages,
     }
 
 

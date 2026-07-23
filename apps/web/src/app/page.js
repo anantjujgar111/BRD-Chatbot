@@ -89,8 +89,13 @@ export default function HomePage() {
     setRemovingFileId(file.id);
     setError("");
     try {
-      await deleteFile(workspaceId, file.id);
+      const result = await deleteFile(workspaceId, file.id);
+      setMessages([]);
+      setBrdMarkdown("");
       await refreshFiles();
+      if (result.chat_history_cleared) {
+        setError("");
+      }
     } catch (err) {
       setError(err.message);
     } finally {

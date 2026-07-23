@@ -8,7 +8,7 @@ from langchain_anthropic import ChatAnthropic
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import BrdDocument, ChatMessage
+from app.database import BrdDocument, ChatMessage, UploadedFile
 from app.models.schemas import ChatResponse, Citation
 from app.services.vector_store import vector_store
 
@@ -31,7 +31,8 @@ Rules:
 - Do not invent requirements.
 - Be structured, concise, and professional.
 - You may see prior messages in this session. Use them for follow-up questions like "summarize that" or "compare those".
-- Factual claims must still be grounded in the uploaded file context provided with each turn.
+- The CURRENT workspace state and retrieved file context are authoritative. If files were removed, ignore earlier chat messages that reference data from removed files.
+- If no files are currently indexed, clearly say no Excel data is available and do not describe file contents from memory or prior chat.
 """
 
 
@@ -123,6 +124,45 @@ class RagService:
         messages.reverse()
         return [{"role": message.role, "content": message.content} for message in messages]
 
+    def clear_chat_history(self, db: Session, workspace_id: str) -> int:
+        return (
+            db.query(ChatMessage)
+            .filter(ChatMessage.workspace_id == workspace_id)
+            .delete(synchronize_session=False)
+        )
+
+    def _get_workspace_state(self, db: Session, workspace_id: str) -> dict:
+        files = (
+            db.query(UploadedFile)
+            .filter(UploadedFile.workspace_id == workspace_id)
+            .order_by(UploadedFile.created_at.asc())
+            .all()
+        )
+        indexed_files = [file.filename for file in files if file.status == "indexed"]
+        chunk_count = vector_store.workspace_chunk_count(workspace_id)
+        return {
+            "file_count": len(files),
+            "indexed_file_count": len(indexed_files),
+            "indexed_files": indexed_files,
+            "chunk_count": chunk_count,
+        }
+
+    def _format_workspace_state(self, state: dict) -> str:
+        if state["indexed_file_count"] == 0:
+            return (
+                "Current workspace state:\n"
+                "- Indexed files: none\n"
+                "- Indexed chunks: 0\n"
+                "- No Excel/CSV data is currently available in this workspace."
+            )
+
+        file_lines = "\n".join(f"  - {name}" for name in state["indexed_files"])
+        return (
+            "Current workspace state:\n"
+            f"- Indexed files ({state['indexed_file_count']}):\n{file_lines}\n"
+            f"- Indexed chunks: {state['chunk_count']}"
+        )
+
     def _build_search_query(self, question: str, history: list[dict]) -> str:
         recent_user_messages = [
             message["content"] for message in history if message["role"] == "user"
@@ -164,30 +204,54 @@ class RagService:
         )
 
     def answer_question(self, db: Session, workspace_id: str, question: str) -> ChatResponse:
+        workspace_state = self._get_workspace_state(db, workspace_id)
         history = self._load_chat_history(db, workspace_id)
+
+        if workspace_state["chunk_count"] == 0:
+            history = []
+
         search_query = self._build_search_query(question, history)
         results = vector_store.hybrid_search(workspace_id, search_query)
         context, citations = self._format_context(results)
+        workspace_summary = self._format_workspace_state(workspace_state)
 
-        prompt = f"""Context from uploaded Excel files:
+        prompt = f"""{workspace_summary}
+
+Context retrieved from currently indexed Excel files:
 {context}
 
 User question:
 {question}
 
 Provide a helpful answer with inline source citations.
-Use the conversation history when the user asks follow-up questions.
+Use conversation history only when it is still consistent with the current workspace state above.
+If no files are indexed, say that clearly and ask the user to upload files.
 """
         if not self._llm_configured():
-            answer = (
-                "Claude API key is not configured. Retrieved context is available, "
-                "but generation is disabled.\n\n" + context[:2000]
-            )
+            if workspace_state["chunk_count"] == 0:
+                answer = (
+                    "No Excel files are currently indexed in this workspace. "
+                    "Upload one or more files to begin."
+                )
+            else:
+                answer = (
+                    "Claude API key is not configured. Retrieved context is available, "
+                    "but generation is disabled.\n\n" + context[:2000]
+                )
             return ChatResponse(
                 answer=answer,
                 citations=citations,
                 confidence=self._confidence(results),
                 gaps=["LLM API key missing"] if not results else [],
+            )
+
+        if workspace_state["chunk_count"] == 0:
+            answer = self._invoke_llm(prompt, history=[])
+            return ChatResponse(
+                answer=answer,
+                citations=[],
+                confidence="low",
+                gaps=["No indexed files in workspace"],
             )
 
         answer = self._invoke_llm(prompt, history=history)
