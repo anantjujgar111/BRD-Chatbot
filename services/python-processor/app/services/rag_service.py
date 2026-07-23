@@ -4,11 +4,11 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import BrdDocument, ChatMessage, Workspace
+from app.database import BrdDocument, ChatMessage
 from app.models.schemas import ChatResponse, Citation
 from app.services.vector_store import vector_store
 
@@ -39,13 +39,16 @@ class RagService:
 
     @property
     def llm(self):
-        if self._llm is None and settings.openai_api_key:
-            self._llm = ChatOpenAI(
-                api_key=settings.openai_api_key,
-                model=settings.openai_model,
+        if self._llm is None and settings.anthropic_api_key:
+            self._llm = ChatAnthropic(
+                api_key=settings.anthropic_api_key,
+                model=settings.anthropic_model,
                 temperature=0.2,
             )
         return self._llm
+
+    def _llm_configured(self) -> bool:
+        return bool(settings.anthropic_api_key)
 
     def _format_context(self, results: list[dict]) -> tuple[str, list[Citation]]:
         if not results:
@@ -91,6 +94,15 @@ class RagService:
                 gaps.append(line.strip("- ").strip())
         return gaps[:5]
 
+    def _invoke_llm(self, user_prompt: str) -> str:
+        response = self.llm.invoke(
+            [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
+        return response.content if hasattr(response, "content") else str(response)
+
     def answer_question(self, workspace_id: str, question: str) -> ChatResponse:
         results = vector_store.hybrid_search(workspace_id, question)
         context, citations = self._format_context(results)
@@ -103,9 +115,9 @@ User question:
 
 Provide a helpful answer with inline source citations.
 """
-        if not settings.openai_api_key:
+        if not self._llm_configured():
             answer = (
-                "OpenAI API key is not configured. Retrieved context is available, "
+                "Claude API key is not configured. Retrieved context is available, "
                 "but generation is disabled.\n\n" + context[:2000]
             )
             return ChatResponse(
@@ -115,13 +127,7 @@ Provide a helpful answer with inline source citations.
                 gaps=["LLM API key missing"] if not results else [],
             )
 
-        response = self.llm.invoke(
-            [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ]
-        )
-        answer = response.content if hasattr(response, "content") else str(response)
+        answer = self._invoke_llm(prompt)
         return ChatResponse(
             answer=answer,
             citations=citations,
@@ -134,10 +140,10 @@ Provide a helpful answer with inline source citations.
         results = vector_store.hybrid_search(workspace_id, query)
         context, _ = self._format_context(results)
 
-        if not settings.openai_api_key:
+        if not self._llm_configured():
             return (
                 f"## {section_title}\n\n"
-                "_OpenAI API key is not configured. Below is retrieved context only._\n\n"
+                "_Claude API key is not configured. Below is retrieved context only._\n\n"
                 f"{context[:3000]}"
             )
 
@@ -147,13 +153,7 @@ Provide a helpful answer with inline source citations.
 Format in markdown with bullets and numbered requirements where appropriate.
 Flag any missing information explicitly.
 """
-        response = self.llm.invoke(
-            [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ]
-        )
-        content = response.content if hasattr(response, "content") else str(response)
+        content = self._invoke_llm(prompt)
         return f"## {section_title}\n\n{content}"
 
     def generate_full_brd(self, db: Session, workspace_id: str, title: str) -> BrdDocument:

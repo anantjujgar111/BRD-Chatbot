@@ -6,9 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    embedding_model: str = "text-embedding-3-small"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
     data_dir: Path = Path("../../data")
     database_url: str = "sqlite:///../../data/brd.db"
     chroma_dir: str = "../../data/chroma"

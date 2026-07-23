@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "Created .env from .env.example — add your OPENAI_API_KEY before generating BRDs."
+  echo "Created .env from .env.example — add your ANTHROPIC_API_KEY before generating BRDs."
 fi
 
 mkdir -p data/uploads data/chroma

@@ -11,7 +11,7 @@ A multi-file Excel chatbot for **Business Requirements Document (BRD)** generati
 | Processing & RAG | FastAPI (Python) |
 | Metadata DB | SQLite (local) |
 | Vector Search | ChromaDB (local) |
-| LLM | OpenAI |
+| LLM | Claude (Anthropic API) |
 
 ## Features
 
@@ -36,7 +36,13 @@ chmod +x scripts/setup.sh
 Edit `.env` and set:
 
 ```env
-OPENAI_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
+```
+
+Optional model override:
+
+```env
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
 ```
 
 ### 3. Run (3 terminals)
@@ -99,6 +105,7 @@ data/
 
 ## Notes
 
-- Without `OPENAI_API_KEY`, ingestion and retrieval still work; generation returns retrieved context only.
+- Without `ANTHROPIC_API_KEY`, ingestion and retrieval still work; generation returns retrieved context only.
+- Semantic search uses ChromaDB's local embeddings — no separate embedding API key required.
 - PostgreSQL can be added later by swapping the storage layer — retrieval logic stays the same.
 - BRD output is a draft; human review is recommended for production use.
