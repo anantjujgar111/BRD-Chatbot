@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+pydantic
+pydantic-settings
+python-dotenv
+sqlalchemy
+openpyxl
+pandas
+langchain
+langchain-anthropic
+langchain-community
+langchain-text-splitters
+chromadb
+rank-bm25
+python-docx

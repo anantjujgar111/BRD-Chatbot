@@ -1,0 +1,6 @@
+Category,Requirement,Target,Verification Method
+Performance,API response time for payment status,<= 2 seconds,Load test
+Security,All PII must be encrypted at rest,AES-256,Security audit
+Availability,Core payment service uptime,99.9% monthly,Monitoring dashboard
+Scalability,Support 10x peak traffic during sales events,Auto scaling,Stress test
+Audit,All admin actions must be logged,100% coverage,Log review
