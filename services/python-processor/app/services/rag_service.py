@@ -40,12 +40,28 @@ class RagService:
     @property
     def llm(self):
         if self._llm is None and settings.anthropic_api_key:
-            self._llm = ChatAnthropic(
-                api_key=settings.anthropic_api_key,
-                model=settings.anthropic_model,
-                temperature=0.2,
-            )
+            self._llm = self._build_llm(settings.anthropic_model)
         return self._llm
+
+    def _model_candidates(self) -> list[str]:
+        configured = [settings.anthropic_model]
+        fallbacks = [
+            model.strip()
+            for model in settings.anthropic_fallback_models.split(",")
+            if model.strip()
+        ]
+        models: list[str] = []
+        for model in configured + fallbacks:
+            if model not in models:
+                models.append(model)
+        return models
+
+    def _build_llm(self, model_name: str):
+        return ChatAnthropic(
+            api_key=settings.anthropic_api_key,
+            model=model_name,
+            temperature=0.2,
+        )
 
     def _llm_configured(self) -> bool:
         return bool(settings.anthropic_api_key)
@@ -95,20 +111,32 @@ class RagService:
         return gaps[:5]
 
     def _invoke_llm(self, user_prompt: str) -> str:
-        try:
-            response = self.llm.invoke(
-                [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ]
-            )
-            return response.content if hasattr(response, "content") else str(response)
-        except Exception as exc:
-            return (
-                "Claude API request failed. Please check your API key and model name in `.env`.\n\n"
-                f"Configured model: `{settings.anthropic_model}`\n"
-                f"Error: {exc}"
-            )
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+        errors: list[str] = []
+
+        for model_name in self._model_candidates():
+            try:
+                response = self._build_llm(model_name).invoke(messages)
+                content = response.content if hasattr(response, "content") else str(response)
+                if model_name != settings.anthropic_model:
+                    content = (
+                        f"_Note: fallback model `{model_name}` was used because "
+                        f"`{settings.anthropic_model}` is not available on your API key._\n\n"
+                        f"{content}"
+                    )
+                self._llm = self._build_llm(model_name)
+                return content
+            except Exception as exc:
+                errors.append(f"{model_name}: {exc}")
+
+        return (
+            "Claude API request failed for all configured models. "
+            "Update `ANTHROPIC_MODEL` in `.env` and restart the Python service.\n\n"
+            + "\n".join(errors[:3])
+        )
 
     def answer_question(self, workspace_id: str, question: str) -> ChatResponse:
         results = vector_store.hybrid_search(workspace_id, question)

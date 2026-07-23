@@ -51,7 +51,7 @@ ANTHROPIC_API_KEY=your_key_here
 Optional model override:
 
 ```env
-ANTHROPIC_MODEL=claude-haiku-4-5
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 ### 3. Run (3 terminals)
