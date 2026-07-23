@@ -20,6 +20,7 @@ A multi-file Excel chatbot for **Business Requirements Document (BRD)** generati
 - **Hybrid retrieval** on every query (semantic + keyword/BM25)
 - Chat Q&A with **file + sheet + cell citations**
 - **Full BRD generation** with standard sections
+- **Remove individual files** from workspace context with one click
 - Local storage only — no PostgreSQL required for MVP
 
 ## Sample Input Files
