@@ -64,6 +64,34 @@ def list_files(workspace_id: str, db: Session = Depends(get_db)):
     )
 
 
+@router.delete("/workspaces/{workspace_id}/files/{file_id}")
+def delete_file(workspace_id: str, file_id: str, db: Session = Depends(get_db)):
+    file_record = (
+        db.query(UploadedFile)
+        .filter(UploadedFile.id == file_id, UploadedFile.workspace_id == workspace_id)
+        .first()
+    )
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    removed_chunks = vector_store.delete_file(workspace_id, file_id)
+
+    stored_path = Path(file_record.stored_path)
+    if stored_path.exists():
+        stored_path.unlink()
+
+    db.delete(file_record)
+    db.commit()
+
+    return {
+        "message": "File removed from workspace context",
+        "file_id": file_id,
+        "filename": file_record.filename,
+        "removed_chunks": removed_chunks,
+        "remaining_chunk_count": vector_store.workspace_chunk_count(workspace_id),
+    }
+
+
 def _process_file(file_id: str) -> None:
     from app.database import SessionLocal
 

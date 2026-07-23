@@ -79,11 +79,49 @@ textarea {
 .file-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 10px 12px;
   background: #0f1528;
   border-radius: 10px;
   font-size: 0.92rem;
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.remove-file {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: #3a2430;
+  color: #ffb4c0;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.remove-file:hover:not(:disabled) {
+  background: #5a2430;
+}
+
+.remove-file:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .status {

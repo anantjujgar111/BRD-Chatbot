@@ -37,6 +37,12 @@ export async function listFiles(workspaceId) {
   return api(`/workspaces/${workspaceId}/files`);
 }
 
+export async function deleteFile(workspaceId, fileId) {
+  return api(`/workspaces/${workspaceId}/files/${fileId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getStats(workspaceId) {
   return api(`/workspaces/${workspaceId}/stats`);
 }

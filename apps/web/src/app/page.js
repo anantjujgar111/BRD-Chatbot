@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   createWorkspace,
+  deleteFile,
   generateBrd,
   getStats,
   listFiles,
@@ -22,6 +23,7 @@ export default function HomePage() {
   const [brdMarkdown, setBrdMarkdown] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [removingFileId, setRemovingFileId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -76,6 +78,23 @@ export default function HomePage() {
     } finally {
       setUploading(false);
       event.target.value = "";
+    }
+  }
+
+  async function onRemoveFile(file) {
+    if (!workspaceId || removingFileId) return;
+    const confirmed = window.confirm(`Remove "${file.filename}" from chat context?`);
+    if (!confirmed) return;
+
+    setRemovingFileId(file.id);
+    setError("");
+    try {
+      await deleteFile(workspaceId, file.id);
+      await refreshFiles();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRemovingFileId("");
     }
   }
 
@@ -174,8 +193,22 @@ export default function HomePage() {
           <div className="file-list">
             {files.map((file) => (
               <div key={file.id} className="file-item">
-                <span>{file.filename}</span>
-                <span className={`status ${file.status}`}>{file.status}</span>
+                <span className="file-name" title={file.filename}>
+                  {file.filename}
+                </span>
+                <div className="file-actions">
+                  <span className={`status ${file.status}`}>{file.status}</span>
+                  <button
+                    type="button"
+                    className="remove-file"
+                    onClick={() => onRemoveFile(file)}
+                    disabled={removingFileId === file.id}
+                    aria-label={`Remove ${file.filename}`}
+                    title="Remove file from context"
+                  >
+                    {removingFileId === file.id ? "..." : "×"}
+                  </button>
+                </div>
               </div>
             ))}
             {!files.length && <div className="file-item">No files uploaded yet.</div>}

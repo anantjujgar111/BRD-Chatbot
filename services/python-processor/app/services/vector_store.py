@@ -128,5 +128,16 @@ class VectorStoreService:
         collection = self.get_collection(workspace_id)
         return collection.count()
 
+    def delete_file(self, workspace_id: str, file_id: str) -> int:
+        collection = self.get_collection(workspace_id)
+        if collection.count() == 0:
+            return 0
+
+        existing = collection.get(where={"file_id": file_id}, include=["metadatas"])
+        chunk_ids = existing.get("ids") or []
+        if chunk_ids:
+            collection.delete(ids=chunk_ids)
+        return len(chunk_ids)
+
 
 vector_store = VectorStoreService()
