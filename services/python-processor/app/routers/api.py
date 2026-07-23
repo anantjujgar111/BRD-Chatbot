@@ -29,7 +29,11 @@ def _ensure_paths() -> None:
 
 @router.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "python-processor"}
+    return {
+        "status": "ok",
+        "service": "python-processor",
+        "claude_configured": bool(settings.anthropic_api_key),
+    }
 
 
 @router.post("/workspaces", response_model=WorkspaceResponse)
