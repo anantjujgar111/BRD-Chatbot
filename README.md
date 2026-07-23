@@ -22,6 +22,15 @@ A multi-file Excel chatbot for **Business Requirements Document (BRD)** generati
 - **Full BRD generation** with standard sections
 - Local storage only — no PostgreSQL required for MVP
 
+## Sample Input Files
+
+Ready-made test files are in `samples/excel/`:
+
+- **Structured:** functional requirements, stakeholders matrix, NFR CSV
+- **Unstructured:** client notes, workshop capture, legacy export
+
+See `samples/README.md` for details and suggested test questions.
+
 ## Quick Start
 
 ### 1. Setup
