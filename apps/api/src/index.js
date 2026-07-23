@@ -26,9 +26,19 @@ async function proxyJson(method, url, body) {
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await response.json();
+
+  const raw = await response.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    const error = new Error(raw || "Upstream request failed");
+    error.status = response.status;
+    throw error;
+  }
+
   if (!response.ok) {
-    const error = new Error(data.detail || "Upstream request failed");
+    const error = new Error(data.detail || data.error || "Upstream request failed");
     error.status = response.status;
     throw error;
   }

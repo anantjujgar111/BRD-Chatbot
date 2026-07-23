@@ -95,13 +95,20 @@ class RagService:
         return gaps[:5]
 
     def _invoke_llm(self, user_prompt: str) -> str:
-        response = self.llm.invoke(
-            [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ]
-        )
-        return response.content if hasattr(response, "content") else str(response)
+        try:
+            response = self.llm.invoke(
+                [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ]
+            )
+            return response.content if hasattr(response, "content") else str(response)
+        except Exception as exc:
+            return (
+                "Claude API request failed. Please check your API key and model name in `.env`.\n\n"
+                f"Configured model: `{settings.anthropic_model}`\n"
+                f"Error: {exc}"
+            )
 
     def answer_question(self, workspace_id: str, question: str) -> ChatResponse:
         results = vector_store.hybrid_search(workspace_id, question)

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     )
 
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
+    anthropic_model: str = "claude-haiku-4-5"
     data_dir: Path = PROJECT_ROOT / "data"
     database_url: str = f"sqlite:///{(PROJECT_ROOT / 'data' / 'brd.db').as_posix()}"
     chroma_dir: str = str(PROJECT_ROOT / "data" / "chroma")

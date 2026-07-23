@@ -138,20 +138,23 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    if payload.mode == "brd_section" and payload.section:
-        section_map = {key: title for key, title in BRD_SECTIONS}
-        section_title = section_map.get(payload.section, payload.section)
-        answer = rag_service.generate_section(payload.workspace_id, payload.section, section_title)
-        response = ChatResponse(answer=answer, citations=[], confidence="medium")
-    elif payload.mode == "brd_full":
-        document = rag_service.generate_full_brd(db, payload.workspace_id, "Business Requirements Document")
-        response = ChatResponse(
-            answer=document.content_markdown,
-            citations=[],
-            confidence="medium",
-        )
-    else:
-        response = rag_service.answer_question(payload.workspace_id, payload.message)
+    try:
+        if payload.mode == "brd_section" and payload.section:
+            section_map = {key: title for key, title in BRD_SECTIONS}
+            section_title = section_map.get(payload.section, payload.section)
+            answer = rag_service.generate_section(payload.workspace_id, payload.section, section_title)
+            response = ChatResponse(answer=answer, citations=[], confidence="medium")
+        elif payload.mode == "brd_full":
+            document = rag_service.generate_full_brd(db, payload.workspace_id, "Business Requirements Document")
+            response = ChatResponse(
+                answer=document.content_markdown,
+                citations=[],
+                confidence="medium",
+            )
+        else:
+            response = rag_service.answer_question(payload.workspace_id, payload.message)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Chat processing failed: {exc}") from exc
 
     rag_service.save_chat(db, payload.workspace_id, payload.message, response)
     return response
