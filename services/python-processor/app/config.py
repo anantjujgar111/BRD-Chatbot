@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     retrieval_top_k: int = 12
     rerank_top_k: int = 8
+    chat_history_limit: int = 12
 
 
 settings = Settings()

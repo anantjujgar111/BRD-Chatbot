@@ -180,7 +180,7 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
                 confidence="medium",
             )
         else:
-            response = rag_service.answer_question(payload.workspace_id, payload.message)
+            response = rag_service.answer_question(db, payload.workspace_id, payload.message)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Chat processing failed: {exc}") from exc
 

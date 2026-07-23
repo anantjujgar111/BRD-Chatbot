@@ -24,12 +24,14 @@ BRD_SECTIONS = [
     ("acceptance_criteria", "Acceptance Criteria"),
 ]
 
-SYSTEM_PROMPT = """You are a BRD assistant. Use only the provided context from uploaded Excel files.
+SYSTEM_PROMPT = """You are a BRD assistant. Use the provided context from uploaded Excel files.
 Rules:
 - Cite sources using [file | sheet | cell_range] inline when making claims.
 - If information is missing, explicitly say "Not found in uploaded files" and list gaps.
 - Do not invent requirements.
 - Be structured, concise, and professional.
+- You may see prior messages in this session. Use them for follow-up questions like "summarize that" or "compare those".
+- Factual claims must still be grounded in the uploaded file context provided with each turn.
 """
 
 
@@ -110,11 +112,34 @@ class RagService:
                 gaps.append(line.strip("- ").strip())
         return gaps[:5]
 
-    def _invoke_llm(self, user_prompt: str) -> str:
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ]
+    def _load_chat_history(self, db: Session, workspace_id: str) -> list[dict]:
+        messages = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.workspace_id == workspace_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(settings.chat_history_limit)
+            .all()
+        )
+        messages.reverse()
+        return [{"role": message.role, "content": message.content} for message in messages]
+
+    def _build_search_query(self, question: str, history: list[dict]) -> str:
+        recent_user_messages = [
+            message["content"] for message in history if message["role"] == "user"
+        ][-2:]
+        return " ".join([*recent_user_messages, question]).strip()
+
+    def _invoke_llm(self, user_prompt: str, history: list[dict] | None = None) -> str:
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for message in history or []:
+            if message["role"] in {"user", "assistant"}:
+                messages.append(
+                    {
+                        "role": message["role"],
+                        "content": message["content"][:4000],
+                    }
+                )
+        messages.append({"role": "user", "content": user_prompt})
         errors: list[str] = []
 
         for model_name in self._model_candidates():
@@ -138,8 +163,10 @@ class RagService:
             + "\n".join(errors[:3])
         )
 
-    def answer_question(self, workspace_id: str, question: str) -> ChatResponse:
-        results = vector_store.hybrid_search(workspace_id, question)
+    def answer_question(self, db: Session, workspace_id: str, question: str) -> ChatResponse:
+        history = self._load_chat_history(db, workspace_id)
+        search_query = self._build_search_query(question, history)
+        results = vector_store.hybrid_search(workspace_id, search_query)
         context, citations = self._format_context(results)
 
         prompt = f"""Context from uploaded Excel files:
@@ -149,6 +176,7 @@ User question:
 {question}
 
 Provide a helpful answer with inline source citations.
+Use the conversation history when the user asks follow-up questions.
 """
         if not self._llm_configured():
             answer = (
@@ -162,7 +190,7 @@ Provide a helpful answer with inline source citations.
                 gaps=["LLM API key missing"] if not results else [],
             )
 
-        answer = self._invoke_llm(prompt)
+        answer = self._invoke_llm(prompt, history=history)
         return ChatResponse(
             answer=answer,
             citations=citations,

@@ -18,7 +18,7 @@ A multi-file Excel chatbot for **Business Requirements Document (BRD)** generati
 - Upload **multiple Excel/CSV files** in one batch
 - Parse **unstructured/messy Excel** (merged cells, irregular blocks)
 - **Hybrid retrieval** on every query (semantic + keyword/BM25)
-- Chat Q&A with **file + sheet + cell citations**
+- Chat Q&A with **file + sheet + cell citations** and **session chat history** for follow-ups
 - **Full BRD generation** with standard sections
 - **Remove individual files** from workspace context with one click
 - Local storage only — no PostgreSQL required for MVP
